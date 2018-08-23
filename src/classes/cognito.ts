@@ -1,6 +1,5 @@
 import { CognitoIdentityServiceProvider, AWSError } from "aws-sdk"
-import { CognitoWrapperOptions, CognitoAuthChallengeResponses } from "../interfaces/CognitoWrapper.barrel";
-import { IdentityServiceProvider } from "../interfaces/IdentityServiceProvider";
+import { CognitoWrapperOptions, CognitoAuthChallengeResponses, IdentityServiceProvider } from "../interfaces/CognitoWrapper.barrel";
 import { IError, Errors } from "@carwashconnect/cwc-core-js";
 
 const BATCH_LIMIT: number = 100;

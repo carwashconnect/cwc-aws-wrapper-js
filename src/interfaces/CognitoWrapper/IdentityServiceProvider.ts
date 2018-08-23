@@ -1,5 +1,5 @@
 import { CognitoIdentityServiceProvider } from "aws-sdk"
-import { AWSCallback } from "./AWSCallback";
+import { AWSCallback } from "../AWSCallback";
 
 export interface IdentityServiceProvider {
     createUserPool: (params: CognitoIdentityServiceProvider.CreateUserPoolRequest, callback: AWSCallback) => any;
