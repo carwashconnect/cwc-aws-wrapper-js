@@ -17,7 +17,9 @@ export class DynamoWrapper {
         "MissingTableException": { status: 500, code: "MissingTableException", message: "No dynamo table was provided" },
         "InvalidIdPrefixException": { status: 500, code: "InvalidIdPrefixException", message: "Prefix provided does not match the table" },
         "UniqueIdException": { status: 500, code: "UniqueIdException", message: "Could not generate unique id" },
-        "ExceededBatchLimitException": { status: 500, code: "ExceededBatchLimitException", message: `Too many requests for batch function (max: ${BATCH_LIMIT})` }
+        "ExceededBatchLimitException": { status: 500, code: "ExceededBatchLimitException", message: `Too many requests for batch function (max: ${BATCH_LIMIT})` },
+        "NoSingleItemException": { status: 500, code: "NoSingleItemException", message: 'No single item could be identified with the provided data' },
+        "MissingUpdateValuesException": { status: 500, code: "MissingUpdateValuesException", message: 'No update values have been provided' }
     };
 
     protected _dateStampColumns: { accessed: string, created: string, modified: string, [key: string]: string } = {
@@ -59,7 +61,7 @@ export class DynamoWrapper {
     //-CRUD Functions-------------------------
     //----------------------------------------
 
-    public create(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.ScanOutput> {
+    public create(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.PutItemOutput> {
         let crudType: string = "Create";
         return new Promise((resolve, reject) => {
 
@@ -70,46 +72,63 @@ export class DynamoWrapper {
             if (null == this.table) return reject(Errors.stamp(this._errors["MissingTableException"]))
             let table: DynamoWrapperTable = this.table;
 
-            // Get the table keys
-            let keys: DynamoDB.DocumentClient.Key = this.getKeys(table, putData);
+            //The function we're going to call after validation
+            let createItem: any = (validatedPutInput: DynamoDB.DocumentClient.PutItemInputAttributeMap) => {
+                // Update the timestamps
+                let now: number = Date.now();
+                validatedPutInput[this._dateStampColumns.created] = now;
+                validatedPutInput[this._dateStampColumns.modified] = now;
 
-            //TODO Generate ID if we don't have one
+                // Create the put data
+                let putRequest: DynamoDB.DocumentClient.PutItemInput = {
+                    TableName: table.tableName[this.options.stage],
+                    ReturnValues: "ALL_NEW",
+                    Item: validatedPutInput
+                };
 
-            //Validate the inputs
+                // Execute the call
+                this._dynamo.put(putRequest, (err: AWSError, response: DynamoDB.DocumentClient.PutItemOutput) => {
+
+                    //Check for an error
+                    if (err) return reject(Errors.awsErrorToIError(err));
+
+                    //Create the output
+                    let createOutput: DynamoDB.DocumentClient.PutItemOutput = { Attributes: validatedPutInput }
+
+                    // Log the data
+                    this.log(crudType, createOutput)
+                        .then(() => { return resolve(createOutput) })
+                        .catch(() => { return resolve(createOutput) })
+
+                });
+            }
+
+            //Create the validator
             let validator: Validator = new Validator();
-            validator.validate(putData, table.columns)
-                .then((validatedPutInput: DynamoDB.DocumentClient.PutItemInputAttributeMap) => {
 
-                    // Update the timestamps
-                    let now: number = Date.now();
-                    validatedPutInput[this._dateStampColumns.created] = now;
-                    validatedPutInput[this._dateStampColumns.modified] = now;
+            //Check if we don't have an id
+            if ("undefined" == typeof input[table.columns.id.name]) {
+                let key: DynamoDB.DocumentClient.Key = this.getKeys(table, input);
+                this.getUniqueId(key)
+                    .then(id => {
 
-                    // Create the put data
-                    let putRequest: DynamoDB.DocumentClient.PutItemInput = {
-                        TableName: table.tableName[this.options.stage],
-                        ReturnValues: "ALL_NEW",
-                        Item: validatedPutInput
-                    };
+                        //Copy the unique id
+                        input[table.columns.id.name] = id;
 
-                    // Execute the call
-                    this._dynamo.put(putRequest, (err: AWSError, response?: DynamoDB.DocumentClient.PutItemInput) => {
+                        //Validate the inputs
+                        validator.validate(putData, table.columns)
+                            .then(createItem)
+                            .catch(reject);
 
-                        //Check for an error
-                        if (err) return reject(Errors.awsErrorToIError(err));
+                    })
+                    .catch(reject);
+            } else {
+                //Validate the inputs
+                validator.validate(putData, table.columns)
+                    .then(createItem)
+                    .catch(reject);
+            }
 
-                        //Create the output
-                        let createOutput: DynamoDB.DocumentClient.ScanOutput = { Count: 1, Items: [validatedPutInput] }
-
-                        // Log the data
-                        this.log(crudType, validatedPutInput)
-                            .then(() => { return resolve(createOutput) })
-                            .catch(() => { return resolve(createOutput) })
-
-                    });
-
-                })
-                .catch(reject);
 
         })
     }
@@ -143,6 +162,149 @@ export class DynamoWrapper {
             });
 
         });
+    }
+
+    public update(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.UpdateItemOutput> {
+        let crudType: string = "Update";
+        return new Promise((resolve, reject) => {
+
+            //Remove empty strings from the data object
+            let putData: DynamoDB.DocumentClient.PutItemInputAttributeMap = Objects.trim(Objects.copy(input));
+
+            //Copy the table
+            if (null == this.table) return reject(Errors.stamp(this._errors["MissingTableException"]))
+            let table: DynamoWrapperTable = this.table;
+
+            //Create the validator
+            let validator: Validator = new Validator();
+
+            //Validate the inputs
+            validator.validate(putData, table.columns)
+                .then((validatedUpdateInput) => {
+
+                    //Get the keys for the table
+                    let keys: DynamoDB.DocumentClient.Key = this.getKeys(table, validatedUpdateInput);
+
+                    //Create the scan filter
+                    let scanFilter: DynamoDB.DocumentClient.FilterConditionMap = {}
+
+                    //Add the keys to the filter
+                    for (let column in keys) {
+                        scanFilter[column] = {
+                            ComparisonOperator: "EQ",
+                            AttributeValueList: [keys[column]]
+                        }
+                    }
+
+                    //Read the table to ensure only one element exists
+                    this.read(scanFilter, [table.columns.id.name])
+                        .then((readResponse: DynamoDB.DocumentClient.ScanOutput) => {
+
+                            //Check if there's not exactly one result
+                            if (1 != readResponse.Count) return reject(Errors.stamp(this._errors["NoSingleItemException"]))
+
+                            // Update the timestamps
+                            let now: number = Date.now();
+                            validatedUpdateInput[this._dateStampColumns.modified] = now;
+
+                            //Create the expressions
+                            let updateExpressionList: string[] = [];
+                            let expressionAttributeNames: DynamoDB.DocumentClient.ExpressionAttributeNameMap = {};
+                            let expressionAttributeValues: DynamoDB.DocumentClient.ExpressionAttributeValueMap = {};
+                            let i: number = 0;
+
+                            //Loop through the validated input
+                            for (let column in validatedUpdateInput) {
+
+                                //Skip key columns
+                                if (table.columns[column].key) continue
+
+                                //Add the appropriate valuus to the expressions
+                                i++;
+                                expressionAttributeNames["#" + i] = column;
+                                expressionAttributeValues[":" + i] = validatedUpdateInput[column];
+                                updateExpressionList.push("#" + i + " = " + ":" + i);
+                            }
+
+                            //Check if nothing is set to be updated
+                            if (0 <= Object.keys(expressionAttributeNames).length) return reject(Errors.stamp(this._errors["MissingUpdateValuesException"]));
+
+                            // Create the put data
+                            let updateRequest: DynamoDB.DocumentClient.UpdateItemInput = {
+                                TableName: table.tableName[this.options.stage],
+                                ReturnValues: "ALL_NEW",
+                                Key: keys,
+                                ExpressionAttributeNames: expressionAttributeNames,
+                                ExpressionAttributeValues: expressionAttributeValues,
+                                UpdateExpression: "SET " + updateExpressionList.join(", ")
+                            };
+
+                            // Execute the call
+                            this._dynamo.update(updateRequest, (err: AWSError, response: DynamoDB.DocumentClient.UpdateItemOutput) => {
+
+                                //Check for an error
+                                if (err) return reject(Errors.awsErrorToIError(err));
+
+                                // Log the data
+                                this.log(crudType, response)
+                                    .then(() => { return resolve(response) })
+                                    .catch(() => { return resolve(response) })
+
+                            });
+
+                        })
+                        .catch(reject)
+
+                })
+                .catch(reject);
+
+        })
+    }
+
+    public delete(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.DeleteItemOutput> {
+        let crudType: string = "Delete";
+        return new Promise((resolve, reject) => {
+
+            //Remove empty strings from the data object
+            let deleteData: DynamoDB.DocumentClient.PutItemInputAttributeMap = Objects.trim(Objects.copy(input));
+
+            //Copy the table
+            if (null == this.table) return reject(Errors.stamp(this._errors["MissingTableException"]))
+            let table: DynamoWrapperTable = this.table;
+
+            //Create the validator
+            let validator: Validator = new Validator();
+
+            //Validate the inputs
+            validator.validate(deleteData, table.columns)
+                .then((validatedUpdateInput) => {
+
+                    //Get the keys for the table
+                    let keys: DynamoDB.DocumentClient.Key = this.getKeys(table, validatedUpdateInput);
+
+                    //Create the delete request
+                    let deleteRequest: DynamoDB.DocumentClient.DeleteItemInput = {
+                        TableName: table.tableName[this.options.stage],
+                        Key: keys,
+                        ReturnValues: "ALL_OLD"
+                    }
+
+                    // Execute the call
+                    this._dynamo.delete(deleteRequest, (err: AWSError, response: DynamoDB.DocumentClient.DeleteItemOutput) => {
+
+                        //Check for an error
+                        if (err) return reject(Errors.awsErrorToIError(err));
+
+                        // Log the data
+                        this.log(crudType, response)
+                            .then(() => { return resolve(response) })
+                            .catch(() => { return resolve(response) })
+
+                    });
+
+                }).catch(reject);
+
+        })
     }
 
     //----------------------------------------
@@ -240,7 +402,7 @@ export class DynamoWrapper {
         });
     }
 
-    log(crudType: string, input: { [key: string]: any }): Promise<{ [key: string]: any }> {
+    protected log(crudType: string, input: { [key: string]: any }): Promise<DynamoDB.DocumentClient.PutItemOutput> {
         return new Promise((resolve, reject) => {
 
             // Remove empty string from the data object
@@ -251,7 +413,7 @@ export class DynamoWrapper {
             let table: DynamoWrapperTable = this.table;
 
             // Check if there is an associated log table
-            if (!table.logTableName) {
+            if ("undefined" == typeof table.logTableName) {
                 console.log("Table log: No log table provided, skipping log")
                 return reject(Errors.stamp(this._errors["MissingTableException"]));
             }
@@ -259,8 +421,9 @@ export class DynamoWrapper {
             let now: number = Date.now();
 
             // Create the put data
-            let putData: { [key: string]: any } = {
+            let putData: DynamoDB.DocumentClient.PutItemInputAttributeMap = {
                 logId: "log_" + this._generateUniqueString() + "-" + now,
+                tableName: table.tableName[this._options.stage],
                 affectedElements: Array.isArray(data) ? data : [data],
                 crudType: crudType,
                 service: this.options.service || "UNKNOWN",
@@ -284,14 +447,16 @@ export class DynamoWrapper {
                 //Check for an error
                 if (err) return reject(Errors.awsErrorToIError(err));
 
+                //Create the output
+                let logOutput: DynamoDB.DocumentClient.PutItemOutput = { Attributes: putData }
+
                 // Log the data
-                resolve(putData)
+                resolve(logOutput)
 
             });
 
         })
     }
-
 
     //----------------------------------------
     //-Utility Functions----------------------
@@ -325,7 +490,7 @@ export class DynamoWrapper {
     }
 
     // Gets the keys marked in the table structure
-    public getUniqueId(key?: DynamoDB.DocumentClient.Key[]): Promise<string> {
+    public getUniqueId(key?: DynamoDB.DocumentClient.Key): Promise<string> {
 
         return new Promise((resolve, reject) => {
             let GENERATED_UNIQUE_ID_COUNT: number = 5;
