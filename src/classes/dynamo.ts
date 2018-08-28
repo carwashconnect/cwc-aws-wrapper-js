@@ -1,9 +1,7 @@
 import { IError, Objects, Errors, Validator, Dates } from "@carwashconnect/cwc-core-js";
 import { DynamoWrapperOptions, DynamoDatabase, DynamoWrapperTable } from "../interfaces/DynamoWrapper.barrel";
 import { DynamoDB, AWSError } from "aws-sdk";
-import { AWSCallback } from "../interfaces/AWSCallback";
 import * as uniqid from "uniqid"
-import { KeysAndAttributes } from "aws-sdk/clients/dynamodb";
 
 const BATCH_LIMIT: number = 100;
 export class DynamoWrapper {
@@ -11,6 +9,7 @@ export class DynamoWrapper {
     protected _dynamo: DynamoDatabase;
     protected _options: DynamoWrapperOptions;
     protected _table?: DynamoWrapperTable;
+    protected _validator: Validator;
     protected _generateUniqueString: () => string;
 
     protected _errors: { [key: string]: IError } = {
@@ -40,6 +39,9 @@ export class DynamoWrapper {
         //Set the string generator
         this._generateUniqueString = uniqid.default;
 
+        //Create the this._validator
+        this._validator = new Validator();
+        this._validator.addLimit("prefix", (input: string, prefix: string): boolean => { return input.startsWith(prefix) ? true : false }, ["string"]);
     }
 
     //----------------------------------------
@@ -87,7 +89,7 @@ export class DynamoWrapper {
                 };
 
                 // Execute the call
-                this._dynamo.put(putRequest, (err: AWSError, response: DynamoDB.DocumentClient.PutItemOutput) => {
+                this._dynamo.put(putRequest, (err: AWSError | null, response: DynamoDB.DocumentClient.PutItemOutput) => {
 
                     //Check for an error
                     if (err) return reject(Errors.awsErrorToIError(err));
@@ -103,9 +105,6 @@ export class DynamoWrapper {
                 });
             }
 
-            //Create the validator
-            let validator: Validator = new Validator();
-
             //Check if we don't have an id
             if ("undefined" == typeof input[table.columns.id.name]) {
                 let key: DynamoDB.DocumentClient.Key = this.getKeys(table, input);
@@ -116,7 +115,7 @@ export class DynamoWrapper {
                         input[table.columns.id.name] = id;
 
                         //Validate the inputs
-                        validator.validate(putData, table.columns)
+                        this._validator.validate(putData, table.columns)
                             .then(createItem)
                             .catch(reject);
 
@@ -124,7 +123,7 @@ export class DynamoWrapper {
                     .catch(reject);
             } else {
                 //Validate the inputs
-                validator.validate(putData, table.columns)
+                this._validator.validate(putData, table.columns)
                     .then(createItem)
                     .catch(reject);
             }
@@ -149,7 +148,7 @@ export class DynamoWrapper {
             if ("undefined" != typeof requestedAttributes) scanRequest.ProjectionExpression = requestedAttributes.join(",");
 
             //Request from the database
-            this._dynamo.scan(scanRequest, (err: AWSError, response: DynamoDB.DocumentClient.ScanOutput) => {
+            this._dynamo.scan(scanRequest, (err: AWSError | null, response: DynamoDB.DocumentClient.ScanOutput) => {
 
                 //Check for an error
                 if (err) return reject(Errors.awsErrorToIError(err));
@@ -175,11 +174,8 @@ export class DynamoWrapper {
             if (null == this.table) return reject(Errors.stamp(this._errors["MissingTableException"]))
             let table: DynamoWrapperTable = this.table;
 
-            //Create the validator
-            let validator: Validator = new Validator();
-
             //Validate the inputs
-            validator.validate(putData, table.columns)
+            this._validator.validate(putData, table.columns)
                 .then((validatedUpdateInput) => {
 
                     //Get the keys for the table
@@ -240,7 +236,7 @@ export class DynamoWrapper {
                             };
 
                             // Execute the call
-                            this._dynamo.update(updateRequest, (err: AWSError, response: DynamoDB.DocumentClient.UpdateItemOutput) => {
+                            this._dynamo.update(updateRequest, (err: AWSError | null, response: DynamoDB.DocumentClient.UpdateItemOutput) => {
 
                                 //Check for an error
                                 if (err) return reject(Errors.awsErrorToIError(err));
@@ -272,11 +268,8 @@ export class DynamoWrapper {
             if (null == this.table) return reject(Errors.stamp(this._errors["MissingTableException"]))
             let table: DynamoWrapperTable = this.table;
 
-            //Create the validator
-            let validator: Validator = new Validator();
-
             //Validate the inputs
-            validator.validate(deleteData, table.columns)
+            this._validator.validate(deleteData, table.columns)
                 .then((validatedUpdateInput) => {
 
                     //Get the keys for the table
@@ -290,7 +283,7 @@ export class DynamoWrapper {
                     }
 
                     // Execute the call
-                    this._dynamo.delete(deleteRequest, (err: AWSError, response: DynamoDB.DocumentClient.DeleteItemOutput) => {
+                    this._dynamo.delete(deleteRequest, (err: AWSError | null, response: DynamoDB.DocumentClient.DeleteItemOutput) => {
 
                         //Check for an error
                         if (err) return reject(Errors.awsErrorToIError(err));
@@ -323,10 +316,19 @@ export class DynamoWrapper {
             let table: DynamoWrapperTable = this.table;
 
             //Create the validation promises
-            let validator = new Validator();
             let validationPromises: Promise<any>[] = [];
             for (let i in keys) {
+                
+
+                //Create a new validator
+                let validator = new Validator()
+
+                //Add the prefix limit
+                validator.addLimit("prefix", (input: string, prefix: string): boolean => { return input.startsWith(prefix) ? true : false }, ["string"]);
+
+                //Add the validation promise
                 validationPromises.push(validator.validate(keys[i], table.columns))
+                
             }
 
             //Validate the input
@@ -350,7 +352,7 @@ export class DynamoWrapper {
                         return new Promise((readResolve, readReject) => {
 
                             //Request from the database
-                            this._dynamo.batchGet(batchRequest, (err: AWSError, response: DynamoDB.DocumentClient.BatchGetItemOutput) => {
+                            this._dynamo.batchGet(batchRequest, (err: AWSError | null, response: DynamoDB.DocumentClient.BatchGetItemOutput) => {
 
                                 //Check for an error
                                 if (err) return readReject(Errors.awsErrorToIError(err));
@@ -442,7 +444,7 @@ export class DynamoWrapper {
             }
 
             // Execute the put
-            this._dynamo.put(putRequest, (err: AWSError, response?: DynamoDB.DocumentClient.PutItemOutput) => {
+            this._dynamo.put(putRequest, (err: AWSError | null, response?: DynamoDB.DocumentClient.PutItemOutput) => {
 
                 //Check for an error
                 if (err) return reject(Errors.awsErrorToIError(err));

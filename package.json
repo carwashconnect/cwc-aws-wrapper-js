@@ -26,8 +26,8 @@
     "typescript": "^3.0.1"
   },
   "dependencies": {
-    "@carwashconnect/cwc-core-js": "^1.0.7",
-    "aws-sdk": "^2.299.0",
+    "@carwashconnect/cwc-core-js": "^1.0.9",
+    "aws-sdk": "^2.302.0",
     "uniqid": "^5.0.3"
   }
 }
