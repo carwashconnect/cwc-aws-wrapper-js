@@ -19,6 +19,7 @@
   "homepage": "https://github.com/carwashconnect/cwc-aws-wrapper-js#readme",
   "devDependencies": {
     "@types/jasmine": "^2.8.8",
+    "@types/node": "^10.9.3",
     "@types/uniqid": "^4.1.2",
     "jasmine": "^3.1.0",
     "jasmine-core": "^3.1.0",
