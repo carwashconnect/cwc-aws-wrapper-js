@@ -3,5 +3,7 @@ function __export(m) {
     for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 }
 Object.defineProperty(exports, "__esModule", { value: true });
-__export(require("@carwashconnect/cwc-core-js"));
+__export(require("./classes/cognito"));
+__export(require("./classes/dynamo"));
+__export(require("./interfaces/CognitoWrapper.barrel"));
 //# sourceMappingURL=index.js.map
