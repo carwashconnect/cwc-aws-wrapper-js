@@ -73,7 +73,7 @@ export class CognitoWrapper {
             }
 
             //Execute the sign up
-            this._cognito.signUp(signUpRequest, (err: AWSError, data: CognitoIdentityServiceProvider.SignUpResponse) => {
+            this._cognito.signUp(signUpRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.SignUpResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -112,7 +112,7 @@ export class CognitoWrapper {
                     if ("undefined" == typeof this._cognito) return reject(Errors.stamp(this._errors["InvalidISPException"]))
 
                     //Execute the request
-                    this._cognito.adminCreateUser(batchRegisterRequest, (err: AWSError, data: CognitoIdentityServiceProvider.AdminCreateUserResponse) => {
+                    this._cognito.adminCreateUser(batchRegisterRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.AdminCreateUserResponse) => {
                         if (err) return registrationReject(err);
                         return registrationResolve(data);
                     });
@@ -145,7 +145,7 @@ export class CognitoWrapper {
             };
 
             //Execute the request
-            this._cognito.adminInitiateAuth(loginRequest, (err: AWSError, data: CognitoIdentityServiceProvider.AdminInitiateAuthResponse) => {
+            this._cognito.adminInitiateAuth(loginRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.AdminInitiateAuthResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -167,7 +167,7 @@ export class CognitoWrapper {
             }
 
             //Execute the request
-            this._cognito.adminUserGlobalSignOut(logoutRequest, (err: AWSError, data: CognitoIdentityServiceProvider.AdminUserGlobalSignOutResponse) => {
+            this._cognito.adminUserGlobalSignOut(logoutRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.AdminUserGlobalSignOutResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -196,7 +196,7 @@ export class CognitoWrapper {
             };
 
             //Execute the request
-            this._cognito.adminInitiateAuth(loginRequest, (err: AWSError, data: CognitoIdentityServiceProvider.AdminInitiateAuthResponse) => {
+            this._cognito.adminInitiateAuth(loginRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.AdminInitiateAuthResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -218,7 +218,7 @@ export class CognitoWrapper {
             };
 
             //Execute the request
-            this._cognito.forgotPassword(forgotPasswordRequest, (err: AWSError, data: CognitoIdentityServiceProvider.ForgotPasswordResponse) => {
+            this._cognito.forgotPassword(forgotPasswordRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.ForgotPasswordResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -242,7 +242,7 @@ export class CognitoWrapper {
             };
 
             //Execute the request
-            this._cognito.confirmForgotPassword(confirmForgotPasswordRequest, (err: AWSError, data: CognitoIdentityServiceProvider.ConfirmForgotPasswordResponse) => {
+            this._cognito.confirmForgotPassword(confirmForgotPasswordRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.ConfirmForgotPasswordResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -265,7 +265,7 @@ export class CognitoWrapper {
             };
 
             //Execute the request
-            this._cognito.changePassword(passwordChangeRequest, (err: AWSError, data: CognitoIdentityServiceProvider.ChangePasswordResponse) => {
+            this._cognito.changePassword(passwordChangeRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.ChangePasswordResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
@@ -312,7 +312,7 @@ export class CognitoWrapper {
             };
 
             //Execute the request
-            this._cognito.adminRespondToAuthChallenge(authChallengeRequest, (err: AWSError, data: CognitoIdentityServiceProvider.AdminRespondToAuthChallengeResponse) => {
+            this._cognito.adminRespondToAuthChallenge(authChallengeRequest, (err: AWSError | null, data: CognitoIdentityServiceProvider.AdminRespondToAuthChallengeResponse) => {
                 if (err) return reject(Errors.awsErrorToIError(err));
                 return resolve(data)
             })
