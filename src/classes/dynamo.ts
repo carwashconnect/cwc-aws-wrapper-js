@@ -77,7 +77,7 @@ export class DynamoWrapper {
             //The function we're going to call after validation
             let createItem: any = (validatedPutInput: DynamoDB.DocumentClient.PutItemInputAttributeMap) => {
                 // Update the timestamps
-                let now: number = Date.now();
+                let now: string = Dates.toISO(Date.now());
                 validatedPutInput[this._dateStampColumns.created] = now;
                 validatedPutInput[this._dateStampColumns.modified] = now;
 
@@ -132,7 +132,7 @@ export class DynamoWrapper {
         })
     }
 
-    public read(filter: DynamoDB.DocumentClient.FilterConditionMap, requestedAttributes?: string[]): Promise<DynamoDB.DocumentClient.ScanOutput> {
+    public read(filter: DynamoDB.DocumentClient.FilterConditionMap, requestedAttributes?: string[], recordDateAccessed: boolean = false): Promise<DynamoDB.DocumentClient.ScanOutput> {
         let crudType = "Read";
         return new Promise((resolve, reject) => {
 
@@ -153,17 +153,43 @@ export class DynamoWrapper {
                 //Check for an error
                 if (err) return reject(Errors.awsErrorToIError(err));
 
-                // Log the data
-                this.log(crudType, response)
-                    .then(() => { return resolve(response) })
-                    .catch(() => { return resolve(response) })
+                //Change the date accessed value/s
+                if ("undefined" != typeof response.Items && recordDateAccessed) {
+
+                    let updatePromises: Promise<any>[] = [];
+                    //Loop through the items
+                    for (let i in response.Items) {
+
+                        //Get the keys necessary to update
+                        let keys = this.getKeys(table, response.Items[i]);
+
+                        //Change the date accessed value
+                        keys[this._dateStampColumns.accessed] = Dates.toISO(Date.now());
+
+                        //Update with the new date accessed
+                        updatePromises.push(this.update(keys, true));
+
+                    }
+
+                    //Update the view elements
+                    Promise.all(updatePromises)
+                        .then(() => {
+                            return resolve(response)
+                        })
+                        .catch((err: IError) => {
+                            return reject(err);
+                        })
+
+                } else {
+                    return resolve(response)
+                }
 
             });
 
         });
     }
 
-    public update(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.UpdateItemOutput> {
+    public update(input: DynamoDB.DocumentClient.PutItemInputAttributeMap, skipLogging: boolean = false): Promise<DynamoDB.DocumentClient.UpdateItemOutput> {
         let crudType: string = "Update";
         return new Promise((resolve, reject) => {
 
@@ -193,14 +219,14 @@ export class DynamoWrapper {
                     }
 
                     //Read the table to ensure only one element exists
-                    this.read(scanFilter, [table.columns.id.name])
+                    this.read(scanFilter, [table.columns.id.name], true)
                         .then((readResponse: DynamoDB.DocumentClient.ScanOutput) => {
 
                             //Check if there's not exactly one result
                             if (1 != readResponse.Count) return reject(Errors.stamp(this._errors["NoSingleItemException"]))
 
                             // Update the timestamps
-                            let now: number = Date.now();
+                            let now: string = Dates.toISO(Date.now());
                             validatedUpdateInput[this._dateStampColumns.modified] = now;
 
                             //Create the expressions
@@ -241,10 +267,14 @@ export class DynamoWrapper {
                                 //Check for an error
                                 if (err) return reject(Errors.awsErrorToIError(err));
 
+                                //Skip the logging
+                                if (skipLogging) { return resolve(response) }
+
                                 // Log the data
                                 this.log(crudType, response)
                                     .then(() => { return resolve(response) })
                                     .catch(() => { return resolve(response) })
+
 
                             });
 
@@ -318,7 +348,7 @@ export class DynamoWrapper {
             //Create the validation promises
             let validationPromises: Promise<any>[] = [];
             for (let i in keys) {
-                
+
 
                 //Create a new validator
                 let validator = new Validator()
@@ -328,7 +358,7 @@ export class DynamoWrapper {
 
                 //Add the validation promise
                 validationPromises.push(validator.validate(keys[i], table.columns))
-                
+
             }
 
             //Validate the input

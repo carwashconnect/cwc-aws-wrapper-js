@@ -23,8 +23,8 @@ export declare class DynamoWrapper {
     readonly options: DynamoWrapperOptions;
     readonly table: DynamoWrapperTable | null;
     create(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.PutItemOutput>;
-    read(filter: DynamoDB.DocumentClient.FilterConditionMap, requestedAttributes?: string[]): Promise<DynamoDB.DocumentClient.ScanOutput>;
-    update(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.UpdateItemOutput>;
+    read(filter: DynamoDB.DocumentClient.FilterConditionMap, requestedAttributes?: string[], recordDateAccessed?: boolean): Promise<DynamoDB.DocumentClient.ScanOutput>;
+    update(input: DynamoDB.DocumentClient.PutItemInputAttributeMap, skipLogging?: boolean): Promise<DynamoDB.DocumentClient.UpdateItemOutput>;
     delete(input: DynamoDB.DocumentClient.PutItemInputAttributeMap): Promise<DynamoDB.DocumentClient.DeleteItemOutput>;
     batchRead(keys: DynamoDB.DocumentClient.Key[], requestedAttributes?: string[]): Promise<DynamoDB.DocumentClient.AttributeMap[]>;
     protected log(crudType: string, input: {

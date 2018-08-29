@@ -57,7 +57,7 @@ var DynamoWrapper = (function () {
                 return reject(cwc_core_js_1.Errors.stamp(_this._errors["MissingTableException"]));
             var table = _this.table;
             var createItem = function (validatedPutInput) {
-                var now = Date.now();
+                var now = cwc_core_js_1.Dates.toISO(Date.now());
                 validatedPutInput[_this._dateStampColumns.created] = now;
                 validatedPutInput[_this._dateStampColumns.modified] = now;
                 var putRequest = {
@@ -92,8 +92,9 @@ var DynamoWrapper = (function () {
             }
         });
     };
-    DynamoWrapper.prototype.read = function (filter, requestedAttributes) {
+    DynamoWrapper.prototype.read = function (filter, requestedAttributes, recordDateAccessed) {
         var _this = this;
+        if (recordDateAccessed === void 0) { recordDateAccessed = false; }
         var crudType = "Read";
         return new Promise(function (resolve, reject) {
             if (null == _this.table)
@@ -108,14 +109,30 @@ var DynamoWrapper = (function () {
             _this._dynamo.scan(scanRequest, function (err, response) {
                 if (err)
                     return reject(cwc_core_js_1.Errors.awsErrorToIError(err));
-                _this.log(crudType, response)
-                    .then(function () { return resolve(response); })
-                    .catch(function () { return resolve(response); });
+                if ("undefined" != typeof response.Items && recordDateAccessed) {
+                    var updatePromises = [];
+                    for (var i in response.Items) {
+                        var keys = _this.getKeys(table, response.Items[i]);
+                        keys[_this._dateStampColumns.accessed] = cwc_core_js_1.Dates.toISO(Date.now());
+                        updatePromises.push(_this.update(keys, true));
+                    }
+                    Promise.all(updatePromises)
+                        .then(function () {
+                        return resolve(response);
+                    })
+                        .catch(function (err) {
+                        return reject(err);
+                    });
+                }
+                else {
+                    return resolve(response);
+                }
             });
         });
     };
-    DynamoWrapper.prototype.update = function (input) {
+    DynamoWrapper.prototype.update = function (input, skipLogging) {
         var _this = this;
+        if (skipLogging === void 0) { skipLogging = false; }
         var crudType = "Update";
         return new Promise(function (resolve, reject) {
             var putData = cwc_core_js_1.Objects.trim(cwc_core_js_1.Objects.copy(input));
@@ -132,11 +149,11 @@ var DynamoWrapper = (function () {
                         AttributeValueList: [keys[column]]
                     };
                 }
-                _this.read(scanFilter, [table.columns.id.name])
+                _this.read(scanFilter, [table.columns.id.name], true)
                     .then(function (readResponse) {
                     if (1 != readResponse.Count)
                         return reject(cwc_core_js_1.Errors.stamp(_this._errors["NoSingleItemException"]));
-                    var now = Date.now();
+                    var now = cwc_core_js_1.Dates.toISO(Date.now());
                     validatedUpdateInput[_this._dateStampColumns.modified] = now;
                     var updateExpressionList = [];
                     var expressionAttributeNames = {};
@@ -163,6 +180,9 @@ var DynamoWrapper = (function () {
                     _this._dynamo.update(updateRequest, function (err, response) {
                         if (err)
                             return reject(cwc_core_js_1.Errors.awsErrorToIError(err));
+                        if (skipLogging) {
+                            return resolve(response);
+                        }
                         _this.log(crudType, response)
                             .then(function () { return resolve(response); })
                             .catch(function () { return resolve(response); });
