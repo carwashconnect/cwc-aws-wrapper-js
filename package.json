@@ -1,6 +1,6 @@
 {
   "name": "@carwashconnect/cwc-aws-wrapper-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A wrapper to add custom functionality to the standard AWS controls.",
   "author": "TheWarmFuzzy (https://github.com/TheWarmFuzzy)",
   "main": "./dist/index.js",
