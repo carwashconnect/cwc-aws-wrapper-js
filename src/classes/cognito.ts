@@ -1,4 +1,4 @@
-import { CognitoIdentityServiceProvider, AWSError } from "aws-sdk"
+import AWS, { CognitoIdentityServiceProvider, AWSError } from "aws-sdk"
 import { CognitoWrapperOptions, CognitoAuthChallengeResponses, IdentityServiceProvider } from "../interfaces/CognitoWrapper.barrel";
 import { IError, Errors } from "@carwashconnect/cwc-core-js";
 
@@ -16,6 +16,8 @@ export class CognitoWrapper {
 
     constructor(options: CognitoWrapperOptions) {
         this._options = options;
+        AWS.config.update({ region: this._options.region || "us-east-1" })
+        this.setIdentityServiceProvider(new CognitoIdentityServiceProvider());
     }
 
     public setIdentityServiceProvider(isp: IdentityServiceProvider): CognitoWrapper {

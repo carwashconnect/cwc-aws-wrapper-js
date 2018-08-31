@@ -1,5 +1,13 @@
 "use strict";
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+var aws_sdk_1 = __importStar(require("aws-sdk"));
 var cwc_core_js_1 = require("@carwashconnect/cwc-core-js");
 var BATCH_LIMIT = 100;
 var CognitoWrapper = (function () {
@@ -10,6 +18,8 @@ var CognitoWrapper = (function () {
             "ExceededBatchLimitException": { status: 500, code: "ExceededBatchLimitException", message: "Too many requests for batch function (max: " + BATCH_LIMIT + ")" }
         };
         this._options = options;
+        aws_sdk_1.default.config.update({ region: this._options.region || "us-east-1" });
+        this.setIdentityServiceProvider(new aws_sdk_1.CognitoIdentityServiceProvider());
     }
     CognitoWrapper.prototype.setIdentityServiceProvider = function (isp) {
         this._cognito = isp;

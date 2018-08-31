@@ -19,16 +19,16 @@
   "homepage": "https://github.com/carwashconnect/cwc-aws-wrapper-js#readme",
   "devDependencies": {
     "@types/jasmine": "^2.8.8",
-    "@types/node": "^10.9.3",
+    "@types/node": "^10.9.4",
     "@types/uniqid": "^4.1.2",
     "jasmine": "^3.1.0",
     "jasmine-core": "^3.1.0",
     "jasmine-ts": "^0.2.1",
-    "typescript": "^3.0.1"
+    "typescript": "^3.0.3"
   },
   "dependencies": {
-    "@carwashconnect/cwc-core-js": "^1.0.9",
-    "aws-sdk": "^2.302.0",
+    "@carwashconnect/cwc-core-js": "^1.0.11",
+    "aws-sdk": "^2.306.0",
     "uniqid": "^5.0.3"
   }
 }
