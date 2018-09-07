@@ -69,7 +69,7 @@ export class CognitoWrapper {
             //Create the sign up request
             let signUpRequest: CognitoIdentityServiceProvider.SignUpRequest = {
                 ClientId: this._options.clientId,
-                Username: email,
+                Username: email.toLowerCase(),
                 Password: password,
                 UserAttributes: validUserAttributes
             }
@@ -102,7 +102,7 @@ export class CognitoWrapper {
                     Username: email,
                     UserAttributes: [
                         { Name: "email_verified", Value: "True" },
-                        { Name: "email", Value: email }
+                        { Name: "email", Value: email.toLowerCase() }
                     ],
                     DesiredDeliveryMediums: ["EMAIL"]
                 };
@@ -143,7 +143,10 @@ export class CognitoWrapper {
                 AuthFlow: "ADMIN_NO_SRP_AUTH",
                 ClientId: this._options.clientId,
                 UserPoolId: this._options.userPool,
-                AuthParameters: { USERNAME: email, PASSWORD: password }
+                AuthParameters: { 
+                    USERNAME: email.toLowerCase(), 
+                    PASSWORD: password 
+                }
             };
 
             //Execute the request
@@ -165,7 +168,7 @@ export class CognitoWrapper {
             //Create the request
             let logoutRequest: CognitoIdentityServiceProvider.AdminUserGlobalSignOutRequest = {
                 UserPoolId: this._options.userPool,
-                Username: email
+                Username: email.toLowerCase()
             }
 
             //Execute the request
@@ -184,7 +187,10 @@ export class CognitoWrapper {
             if ("undefined" == typeof this._cognito) return reject(Errors.stamp(this._errors["InvalidISPException"]))
 
             //Prepare the auth parameters
-            let authParameters: CognitoIdentityServiceProvider.AuthParametersType = { USERNAME: email, REFRESH_TOKEN: refreshToken }
+            let authParameters: CognitoIdentityServiceProvider.AuthParametersType = { 
+                USERNAME: email.toLowerCase(), 
+                REFRESH_TOKEN: refreshToken 
+            }
 
             //Add the device key if provided
             if ("undefined" != typeof deviceKey) authParameters["DEVICE_KEY"] = deviceKey;
@@ -216,7 +222,7 @@ export class CognitoWrapper {
             //Create the request
             let forgotPasswordRequest: CognitoIdentityServiceProvider.ForgotPasswordRequest = {
                 ClientId: this._options.clientId,
-                Username: email
+                Username: email.toLowerCase()
             };
 
             //Execute the request
@@ -238,7 +244,7 @@ export class CognitoWrapper {
             //Create the request
             let confirmForgotPasswordRequest: CognitoIdentityServiceProvider.ConfirmForgotPasswordRequest = {
                 ClientId: this._options.clientId,
-                Username: email,
+                Username: email.toLowerCase(),
                 Password: password,
                 ConfirmationCode: confirmationCode
             };
@@ -287,7 +293,7 @@ export class CognitoWrapper {
             challegeName = challegeName.toUpperCase();
 
             //Create the challenge response
-            let challengeResponse: CognitoIdentityServiceProvider.ChallengeResponsesType = { USERNAME: email };
+            let challengeResponse: CognitoIdentityServiceProvider.ChallengeResponsesType = { USERNAME: email.toLowerCase() };
             for (let key in challengeResponses) {
                 if ("undefined" != typeof challengeResponses[key])
                     challengeResponse[key] = <string>challengeResponses[key]

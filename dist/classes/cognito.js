@@ -49,7 +49,7 @@ var CognitoWrapper = (function () {
             var validUserAttributes = _this.getValidAttributes(userAttributes);
             var signUpRequest = {
                 ClientId: _this._options.clientId,
-                Username: email,
+                Username: email.toLowerCase(),
                 Password: password,
                 UserAttributes: validUserAttributes
             };
@@ -72,7 +72,7 @@ var CognitoWrapper = (function () {
                     Username: email,
                     UserAttributes: [
                         { Name: "email_verified", Value: "True" },
-                        { Name: "email", Value: email }
+                        { Name: "email", Value: email.toLowerCase() }
                     ],
                     DesiredDeliveryMediums: ["EMAIL"]
                 };
@@ -104,7 +104,10 @@ var CognitoWrapper = (function () {
                 AuthFlow: "ADMIN_NO_SRP_AUTH",
                 ClientId: _this._options.clientId,
                 UserPoolId: _this._options.userPool,
-                AuthParameters: { USERNAME: email, PASSWORD: password }
+                AuthParameters: {
+                    USERNAME: email.toLowerCase(),
+                    PASSWORD: password
+                }
             };
             _this._cognito.adminInitiateAuth(loginRequest, function (err, data) {
                 if (err)
@@ -120,7 +123,7 @@ var CognitoWrapper = (function () {
                 return reject(cwc_core_js_1.Errors.stamp(_this._errors["InvalidISPException"]));
             var logoutRequest = {
                 UserPoolId: _this._options.userPool,
-                Username: email
+                Username: email.toLowerCase()
             };
             _this._cognito.adminUserGlobalSignOut(logoutRequest, function (err, data) {
                 if (err)
@@ -134,7 +137,10 @@ var CognitoWrapper = (function () {
         return new Promise(function (resolve, reject) {
             if ("undefined" == typeof _this._cognito)
                 return reject(cwc_core_js_1.Errors.stamp(_this._errors["InvalidISPException"]));
-            var authParameters = { USERNAME: email, REFRESH_TOKEN: refreshToken };
+            var authParameters = {
+                USERNAME: email.toLowerCase(),
+                REFRESH_TOKEN: refreshToken
+            };
             if ("undefined" != typeof deviceKey)
                 authParameters["DEVICE_KEY"] = deviceKey;
             var loginRequest = {
@@ -157,7 +163,7 @@ var CognitoWrapper = (function () {
                 return reject(cwc_core_js_1.Errors.stamp(_this._errors["InvalidISPException"]));
             var forgotPasswordRequest = {
                 ClientId: _this._options.clientId,
-                Username: email
+                Username: email.toLowerCase()
             };
             _this._cognito.forgotPassword(forgotPasswordRequest, function (err, data) {
                 if (err)
@@ -173,7 +179,7 @@ var CognitoWrapper = (function () {
                 return reject(cwc_core_js_1.Errors.stamp(_this._errors["InvalidISPException"]));
             var confirmForgotPasswordRequest = {
                 ClientId: _this._options.clientId,
-                Username: email,
+                Username: email.toLowerCase(),
                 Password: password,
                 ConfirmationCode: confirmationCode
             };
@@ -207,7 +213,7 @@ var CognitoWrapper = (function () {
             if ("undefined" == typeof _this._cognito)
                 return reject(cwc_core_js_1.Errors.stamp(_this._errors["InvalidISPException"]));
             challegeName = challegeName.toUpperCase();
-            var challengeResponse = { USERNAME: email };
+            var challengeResponse = { USERNAME: email.toLowerCase() };
             for (var key in challengeResponses) {
                 if ("undefined" != typeof challengeResponses[key])
                     challengeResponse[key] = challengeResponses[key];
